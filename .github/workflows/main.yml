@@ -1,34 +1,29 @@
 name: Fly Deploy
-on:
-  push:                     # run on every push to any branch
+on: [push]
+
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
 jobs:
   deploy:
+    name: Deploy app
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3          # v3 is current
+      # ────────── 1. Check out repo ──────────
+      - uses: actions/checkout@v2
 
+      # ────────── 2. Install flyctl  ─────────
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      # ---------- Create volume if it isn't there ----------
-      - name: Ensure 'data' volume exists
+      # ────────── 3. Ensure volume exists ────
+      # (--if-exists returns 0 if it's already there, so the job never fails)
+      - name: Ensure persistent volume
         run: |
-          # flyctl exits 0 if the volume already exists
-          flyctl volumes create data --region dfw --size 1 --if-not-exists
-      # -----------------------------------------------------
+          flyctl volumes create data \
+            --region dfw \
+            --size 1 \
+            --if-exists       # 👈  prevents “already exists” error
 
-      # ---------- Deploy the app ----------
+      # ────────── 4. Deploy exactly as before ─
       - name: Deploy to Fly
         run: flyctl deploy --remote-only
-      # ------------------------------------
-
-      # ---------- Friendly log ----------
-      - name: Show mount hint (first run only)
-        if: ${{ github.run_attempt == 1 }}
-        run: |
-          echo "::notice::Add this to fly.toml if you haven't yet:"
-          echo "[[mounts]]"
-          echo "  source      = \"data\""
-          echo "  destination = \"/home/node/.n8n\""
